@@ -1,0 +1,87 @@
+function [ np, ep, E ] = findinfogmrfpotentials( nu, Lambda, E, varargin  )
+% findinfogmrfpotentials returns the edge potentials of a Gaussian density over
+% a selected graph with edges E given its information form parameters nu
+% and Lambda.
+%
+% The variables associated with the vertices are assumed to be ordered. The
+% default dimensionality is 1.
+%
+%  [ np, ep ] = findinfogmrfpotentials( nu, Lambda, E ) returns the node potentials
+%  in np and edge potentials in ep for the density with mean vector m and
+%  covariance C over the graph with edges E.
+%
+% [ np, ep ] = findinfogmrfpotentials( nu, Lambda, E, d ) uses the scalar d as the
+% node dimensionality.
+%
+% [ np, ep ] = findinfogmrfpotentials( nu, Lambda, E, D ) uses the array D to read
+% the node dimensionality from each entry.
+
+% These potentials should be used in accordance with Eq.s 2.42-2.45 in Erik
+% Sudderth's master thesis.
+%
+% Murat Uney 01.2014 Initial implementation
+% Murat Uney 03.2024 Re-implementation as part of @gpot
+% Murat Uney 07.2024 Updated to distributed Lambda over both node
+% potentials and edge potentials evenly. Therefore, 2.42-2.45 apply now to
+% the combination of the node and edge potentials over the same pair of
+% nodes.
+
+
+d = 1;
+
+
+d = ones( numel(nu), 1 );
+if nargin>2
+    inp = varargin{1}(:);
+    if numel( inp ) == 1
+        d =  ones( floor( numel(m)/inp(1) ), 1 );
+    else
+        d = inp;
+    end
+end
+
+% Variable indices are below:
+stind = [1; cumsum( d )+1];
+stind = stind(1:end-1);
+
+% Variable labels are below
+V = sort( unique(E(:)), 'ascend');
+
+
+for i=1:numel( stind )
+
+    [ch,e] = chi( E,  V(i) );
+    numch = numel(ch);
+
+    gpotobj = gpot;
+    gpotobj.numvariables = 1;
+    gpotobj.ids = V(i);
+    gpotobj.dims = d(i);
+    gpotobj.nu = nu(stind(i):stind(i)+d(i) -1);
+    %gpotobj.Lambda = Lambda( stind(i):stind(i)+d(i) -1, stind(i):stind(i)+d(i) -1 )/(numch+1);
+    gpotobj.Lambda = Lambda( stind(i):stind(i)+d(i) -1, stind(i):stind(i)+d(i) -1 );
+
+    np(i) = gpotobj;
+end
+
+for i=1:size( E ,1)
+    ind1 = [stind( E(i,1) ):stind( E(i,1) )+d( E(i,1) ) - 1  ]';
+    ind2 = [stind( E(i,2) ):stind( E(i,2) )+d( E(i,2) ) - 1  ]';    
+    
+    %% Go with 2.42, 2.43 in Sudderth thesis and update the local stuff with 2.44 and 2.45
+    %% To satisfy 2.16 when combined with the node potentials
+    [ch,e] = chi( E,  E(i,1));
+    numch = numel(ch);
+    [pas,e] = pa( E,  E(i,2) );
+    numpa = numel(pas);
+
+    gpotobj =  gpot;
+    gpotobj.numvariables = 2;
+    gpotobj.ids = [ E(i,1),  E(i,2) ];
+    gpotobj.dims = [d( E(i,1) ),  d( E(i,2) ) ];
+    gpotobj.nu = zeros( numel([ind1;ind2]), 1 );
+   % gpotobj.Lambda = [ [Lambda(ind1,ind1)/(numch+1), Lambda(ind1,ind2)];[Lambda(ind2,ind1), Lambda(ind2,ind2)/(numpa+1) ] ];
+    gpotobj.Lambda = [ [0, Lambda(ind1,ind2)];[Lambda(ind2,ind1), 0 ] ];
+    ep(i) = gpotobj;
+end
+
