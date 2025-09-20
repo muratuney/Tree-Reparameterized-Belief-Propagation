@@ -1,5 +1,5 @@
 # Tree-Reparameterized-Belief-Propagation 
-contains a MATLAB library and scripts used for the numerical experiments in:
+contains a MATLAB library (licensed under the Creative Commons BY-NC-SA terms & conditions) and scripts used for the numerical experiments in:
 
 Murat Uney, Simo Sarkka, Angel Garcia-Fernandez,
 "Tree Reparameterized Belief Propagation for Gaussian Markov Random Fields" 
